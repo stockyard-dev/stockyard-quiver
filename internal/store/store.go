@@ -1,11 +1,23 @@
 package store
-import("database/sql";"fmt";"os";"path/filepath";"time";_ "modernc.org/sqlite")
-type DB struct{*sql.DB}
-type Item struct{ID int64 `json:"id"`;Title string `json:"title"`;URL string `json:"url"`;Type string `json:"type"`;Status string `json:"status"`;Progress int `json:"progress"`;Notes string `json:"notes"`;Tags string `json:"tags"`;CreatedAt time.Time `json:"created_at"`;UpdatedAt time.Time `json:"updated_at"`}
-func Open(d string)(*DB,error){os.MkdirAll(d,0755);dsn:=filepath.Join(d,"quiver.db")+"?_journal_mode=WAL&_busy_timeout=5000";db,err:=sql.Open("sqlite",dsn);if err!=nil{return nil,fmt.Errorf("open: %w",err)};db.SetMaxOpenConns(1);migrate(db);return &DB{db},nil}
-func migrate(db *sql.DB){db.Exec(`CREATE TABLE IF NOT EXISTS items(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,url TEXT DEFAULT '',type TEXT DEFAULT 'article',status TEXT DEFAULT 'unread',progress INTEGER DEFAULT 0,notes TEXT DEFAULT '',tags TEXT DEFAULT '',created_at DATETIME DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)}
-func(db *DB)Create(i *Item)error{res,err:=db.Exec(`INSERT INTO items(title,url,type,status,notes,tags)VALUES(?,?,?,?,?,?)`,i.Title,i.URL,i.Type,i.Status,i.Notes,i.Tags);if err!=nil{return err};i.ID,_=res.LastInsertId();return nil}
-func(db *DB)List(status,typ string)([]Item,error){q:=`SELECT id,title,url,type,status,progress,notes,tags,created_at,updated_at FROM items WHERE 1=1`;args:=[]interface{}{};if status!=""{q+=` AND status=?`;args=append(args,status)};if typ!=""{q+=` AND type=?`;args=append(args,typ)};q+=` ORDER BY created_at DESC`;rows,err:=db.Query(q,args...);if err!=nil{return nil,err};defer rows.Close();var out[]Item;for rows.Next(){var i Item;rows.Scan(&i.ID,&i.Title,&i.URL,&i.Type,&i.Status,&i.Progress,&i.Notes,&i.Tags,&i.CreatedAt,&i.UpdatedAt);out=append(out,i)};return out,nil}
-func(db *DB)Update(id int64,status string,progress int,notes string){db.Exec(`UPDATE items SET status=?,progress=?,notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`,status,progress,notes,id)}
-func(db *DB)Delete(id int64){db.Exec(`DELETE FROM items WHERE id=?`,id)}
-func(db *DB)Stats()(map[string]interface{},error){var total,done,reading int;db.QueryRow(`SELECT COUNT(*) FROM items`).Scan(&total);db.QueryRow(`SELECT COUNT(*) FROM items WHERE status='done'`).Scan(&done);db.QueryRow(`SELECT COUNT(*) FROM items WHERE status='reading'`).Scan(&reading);return map[string]interface{}{"total":total,"done":done,"in_progress":reading},nil}
+import ("database/sql";"fmt";"os";"path/filepath";"time";_ "modernc.org/sqlite")
+type DB struct{db *sql.DB}
+type Item struct{
+	ID string `json:"id"`
+	Name string `json:"name"`
+	Description string `json:"description"`
+	Status string `json:"status"`
+	Category string `json:"category"`
+	Tags string `json:"tags"`
+	CreatedAt string `json:"created_at"`
+}
+func Open(d string)(*DB,error){if err:=os.MkdirAll(d,0755);err!=nil{return nil,err};db,err:=sql.Open("sqlite",filepath.Join(d,"quiver.db")+"?_journal_mode=WAL&_busy_timeout=5000");if err!=nil{return nil,err}
+db.Exec(`CREATE TABLE IF NOT EXISTS items(id TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT DEFAULT '',status TEXT DEFAULT 'active',category TEXT DEFAULT '',tags TEXT DEFAULT '',created_at TEXT DEFAULT(datetime('now')))`)
+return &DB{db:db},nil}
+func(d *DB)Close()error{return d.db.Close()}
+func genID()string{return fmt.Sprintf("%d",time.Now().UnixNano())}
+func now()string{return time.Now().UTC().Format(time.RFC3339)}
+func(d *DB)Create(e *Item)error{e.ID=genID();e.CreatedAt=now();_,err:=d.db.Exec(`INSERT INTO items(id,name,description,status,category,tags,created_at)VALUES(?,?,?,?,?,?,?)`,e.ID,e.Name,e.Description,e.Status,e.Category,e.Tags,e.CreatedAt);return err}
+func(d *DB)Get(id string)*Item{var e Item;if d.db.QueryRow(`SELECT id,name,description,status,category,tags,created_at FROM items WHERE id=?`,id).Scan(&e.ID,&e.Name,&e.Description,&e.Status,&e.Category,&e.Tags,&e.CreatedAt)!=nil{return nil};return &e}
+func(d *DB)List()[]Item{rows,_:=d.db.Query(`SELECT id,name,description,status,category,tags,created_at FROM items ORDER BY created_at DESC`);if rows==nil{return nil};defer rows.Close();var o []Item;for rows.Next(){var e Item;rows.Scan(&e.ID,&e.Name,&e.Description,&e.Status,&e.Category,&e.Tags,&e.CreatedAt);o=append(o,e)};return o}
+func(d *DB)Delete(id string)error{_,err:=d.db.Exec(`DELETE FROM items WHERE id=?`,id);return err}
+func(d *DB)Count()int{var n int;d.db.QueryRow(`SELECT COUNT(*) FROM items`).Scan(&n);return n}
