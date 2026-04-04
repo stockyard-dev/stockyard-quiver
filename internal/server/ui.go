@@ -76,7 +76,7 @@ const dashHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="v
 <div class="modal-bg" id="mbg" onclick="if(event.target===this)closeModal()"><div class="modal" id="mdl"></div></div>
 <script>
 var A='/api',items=[],filter='all',editId=null;
-async function load(){var r=await fetch(A+'/items').then(function(r){return r.json()});items=r.items||r.reading_items||[];renderStats();render();}
+async function load(){var r=await fetch(A+'/reading_items').then(function(r){return r.json()});items=r.items||r.reading_items||[];renderStats();render();}
 function renderStats(){var total=items.length,unread=items.filter(function(i){return i.status==='unread'}).length,reading=items.filter(function(i){return i.status==='reading'}).length,done=items.filter(function(i){return i.status==='finished'}).length;
 document.getElementById('stats').innerHTML=[{l:'Total',v:total,f:'all'},{l:'To Read',v:unread,f:'unread'},{l:'Reading',v:reading,f:'reading'},{l:'Finished',v:done,f:'finished'}].map(function(x){return '<div class="st'+(filter===x.f?' active':'')+'" onclick="setFilter(\''+x.f+'\')"><div class="st-v">'+x.v+'</div><div class="st-l">'+x.l+'</div></div>'}).join('');}
 function setFilter(f){filter=f;renderStats();render();}
@@ -105,8 +105,8 @@ h+='</div>';
 if(i.notes)h+='<div class="item-notes">'+esc(i.notes)+'</div>';
 h+='</div>';});
 document.getElementById('items').innerHTML=h;}
-async function setStatus(id,status){var body={status:status};if(status==='finished')body.completed_at=new Date().toISOString();if(status==='unread')body.completed_at='';await fetch(A+'/items/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});load();}
-async function del(id){if(!confirm('Remove this item?'))return;await fetch(A+'/items/'+id,{method:'DELETE'});load();}
+async function setStatus(id,status){var body={status:status};if(status==='finished')body.completed_at=new Date().toISOString();if(status==='unread')body.completed_at='';await fetch(A+'/reading_items/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});load();}
+async function del(id){if(!confirm('Remove this item?'))return;await fetch(A+'/reading_items/'+id,{method:'DELETE'});load();}
 function formHTML(item){var i=item||{title:'',author:'',url:'',type:'article',status:'unread',rating:0,tags:'',notes:''};var isEdit=!!item;
 var types=['article','book','paper','course','video','podcast'];var statuses=['unread','reading','finished'];
 var h='<h2>'+(isEdit?'EDIT ITEM':'ADD TO READING LIST')+'</h2>';
@@ -132,8 +132,8 @@ function closeModal(){document.getElementById('mbg').classList.remove('open');ed
 async function submit(){var title=document.getElementById('f-title').value.trim();if(!title){alert('Title is required');return;}
 var body={title:title,author:document.getElementById('f-author').value.trim(),url:document.getElementById('f-url').value.trim(),type:document.getElementById('f-type').value,status:document.getElementById('f-status').value,rating:parseInt(document.getElementById('f-rating').dataset.val)||0,tags:document.getElementById('f-tags').value.trim(),notes:document.getElementById('f-notes').value.trim()};
 if(body.status==='finished'&&!editId)body.completed_at=new Date().toISOString();
-if(editId){await fetch(A+'/items/'+editId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
-else{await fetch(A+'/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
+if(editId){await fetch(A+'/reading_items/'+editId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
+else{await fetch(A+'/reading_items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
 closeModal();load();}
 function esc(s){if(!s)return'';var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
